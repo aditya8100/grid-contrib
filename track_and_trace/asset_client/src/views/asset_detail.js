@@ -21,6 +21,7 @@ const moment = require('moment')
 const truncate = require('lodash/truncate')
 
 const { MultiSelect } = require('../components/forms')
+const { Table } = require('../components/tables')
 const { Proposal, PropertyDefinition, AnswerProposalAction } = require('../protobuf')
 const parsing = require('../services/parsing')
 const api = require('../services/api')
@@ -33,6 +34,8 @@ const {
   getOldestPropertyUpdateTime,
   isReporter
 } = require('../utils/records')
+
+const PAGE_SIZE = 50
 
 /**
  * Possible selection options
@@ -508,6 +511,23 @@ const AssetDetail = {
           (isReporter(record, 'location', publicKey) && !record.final
             ? m(ReportLocation, { record, onsuccess: () => _loadData(record.record_id, vnode.state), signer })
             : null)),
+
+          _row(
+            m(Table, {
+              headers: [
+                'Owner',
+                'Timestamp',
+              ],
+              rows: record.owner_updates
+                .map((rec) => [
+                  rec.agent_id,
+                  // This is the "created" time, synthesized from properties
+                  // added on the initial create
+                  _formatTimestamp(rec.timestamp),
+                ]),
+              noRowsText: 'No owners found'
+            })
+          ),
 
         _row(m(ReporterControl, {
           record,

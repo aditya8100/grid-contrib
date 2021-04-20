@@ -89,7 +89,13 @@ const _controlButtons = (vnode, publicKey) => {
             'All': () => { vnode.state.filteredAgents = vnode.state.agents }
           },
           initialFilter: 'All'
-        })),
+        }),
+        m('button.btn.btn-primary',
+                {
+                  onclick: () => {
+                    m.route.set('/agents/add')
+                  },
+                }, 'Add Agent')),
       m('.col-sm-4', _pagingButtons(vnode))
     ]
   } else {

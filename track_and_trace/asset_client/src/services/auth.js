@@ -234,7 +234,7 @@ const AuthService = {
      * The function is a (Signer) => Promise, where the promise is resolved when the
      * transaction completes
      */
-  createUser: (user, submitTransactionFn) => {
+  createUser: (user, submitTransactionFn, overwriteUserData = true) => {
     let userCreate = pluck(user, 'password', 'email')
     return AuthService.createSigner(userCreate.password)
       .then(({ signer, encryptedPrivateKey }) => {
@@ -258,7 +258,7 @@ const AuthService = {
               return Promise.reject('Unable to sign up at this time.')
             }
           })
-          .then(() => AuthService.setUserData(userCreate, userCreate.password))
+          .then(() => overwriteUserData && AuthService.setUserData(userCreate, userCreate.password))
       })
   }
 }

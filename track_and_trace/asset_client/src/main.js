@@ -27,6 +27,7 @@ const auth = require('./services/auth')
 const navigation = require('./components/navigation')
 
 const AddAssetForm = require('./views/add_asset_form')
+const AddAgentForm = require('./views/add_agent_form')
 const AgentDetailPage = require('./views/agent_detail')
 const AgentList = require('./views/list_agents')
 const AssetList = require('./views/list_assets')
@@ -129,6 +130,7 @@ const profile = () => {
 document.addEventListener('DOMContentLoaded', () => {
   m.route(document.querySelector('#app'), '/', {
     '/': resolve(Dashboard),
+    '/agents/add': resolve(AddAgentForm),
     '/agents/:publicKey': resolve(AgentDetailPage),
     '/agents': resolve(AgentList),
     '/organizations': resolve(OrganizationList),

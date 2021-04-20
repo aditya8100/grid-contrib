@@ -18,6 +18,21 @@
 
 FROM httpd:2.4
 
+# RUN echo "\
+# \n\
+# ServerName asset_client\n\
+# AddDefaultCharset utf-8\n\
+# LoadModule proxy_module modules/mod_proxy.so\n\
+# LoadModule proxy_http_module modules/mod_proxy_http.so\n\
+# ProxyPass /api http://server:3000\n\
+# ProxyPassReverse /api http://server:3000\n\
+# ProxyPass /sawtooth http://rest-api:8008\n\
+# ProxyPassReverse /sawtooth http://rest-api:8008\n\
+# ProxyPass /grid http://gridd:8080\n\
+# ProxyPassReverse /grid http://gridd:8080\n\
+# \n\
+# " >>/usr/local/apache2/conf/httpd.conf
+
 RUN echo "\
 \n\
 ServerName asset_client\n\
@@ -26,8 +41,8 @@ LoadModule proxy_module modules/mod_proxy.so\n\
 LoadModule proxy_http_module modules/mod_proxy_http.so\n\
 ProxyPass /api http://server:3000\n\
 ProxyPassReverse /api http://server:3000\n\
-ProxyPass /sawtooth http://rest-api:8008\n\
-ProxyPassReverse /sawtooth http://rest-api:8008\n\
+ProxyPass /sawtooth http://sawtooth-rest-api-default-08008\n\
+ProxyPassReverse /sawtooth http://sawtooth-rest-api-default-0:8008\n\
 ProxyPass /grid http://gridd:8080\n\
 ProxyPassReverse /grid http://gridd:8080\n\
 \n\
