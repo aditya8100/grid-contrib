@@ -43,8 +43,7 @@ const PAGE_SIZE = 50
  */
 const authorizableProperties = [
   'weight',
-  'components',
-  'componentsNumber'
+  'components, componentsNumber',
 ]
 
 const propertyNames = (schemaName) => {
@@ -197,7 +196,11 @@ const ReporterControl = {
           record,
           agents,
           onsubmit: ([publicKey, properties]) =>
-            _submitProposal(record, ROLE_TO_ENUM['reporter'], publicKey, signer, properties),
+            {
+              let propertiesUnfolded = []
+              properties.map(property => propertiesUnfolded = propertiesUnfolded.concat(property.split(", ")))
+              _submitProposal(record, ROLE_TO_ENUM['reporter'], publicKey, signer, propertiesUnfolded)
+            },
           onsuccess
         }),
 
