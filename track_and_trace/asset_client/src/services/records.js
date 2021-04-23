@@ -18,7 +18,7 @@ const _generateId = () => {
 }
 
 const getRecords = () => {
-  m.request({
+  return m.request({
     method: 'GET',
     url: '/grid/record'
   })
@@ -31,7 +31,7 @@ const fetchRecord = (recordId) => {
   })
 }
 
-const createRecordTransaction = (properties, signer) => {
+const createRecordTransaction = (properties, signer, schema) => {
   if (!signer) {
     throw new Error('A signer must be provided')
   }
@@ -40,7 +40,7 @@ const createRecordTransaction = (properties, signer) => {
 
   let createRecord = CreateRecordAction.create({
     recordId,
-    schema: 'asset',
+    schema: schema,
     properties
   })
 
@@ -55,7 +55,7 @@ const createRecordTransaction = (properties, signer) => {
   let propertyNames = properties.map((property) => property.name)
 
   let recordAddress = addressing.makeRecordAddress(recordId)
-  let schemaAddress = addressing.makeSchemaAddress('asset')
+  let schemaAddress = addressing.makeSchemaAddress(schema)
   let agentAddress = addressing.makeAgentAddress(signer.getPublicKey().asHex())
   let propertyAddresses = addressing.makePropertyAddresses(recordId, propertyNames)
   let propertyPageAddresses = addressing.makePropertyPageAddresses(recordId, propertyNames, 1)
@@ -77,8 +77,8 @@ const createRecordTransaction = (properties, signer) => {
   }, signer, 'tnt', [addressing.pikeFamily, addressing.tntFamily, addressing.gridSchemaFamily])
 }
 
-const createRecord = (properties, signer) => {
-  transactionService.submitBatch([createRecordTransaction(properties, signer)], signer)
+const createRecord = (properties, signer, schema) => {
+  transactionService.submitBatch([createRecordTransaction(properties, signer, schema)], signer)
 }
 
 const finalizeRecordTransaction = (recordId, signer) => {

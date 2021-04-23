@@ -23,6 +23,7 @@ const records = require('../services/records')
 const parsing = require('../services/parsing')
 const forms = require('../components/forms')
 const layout = require('../components/layout')
+const _ = require('lodash')
 
 /**
  * The Form for tracking a new asset.
@@ -36,6 +37,11 @@ const AddAssetForm = {
         properties: []
       }
     ]
+    vnode.state.selected = []
+    vnode.state.records = []
+    vnode.state.textFields = []
+    vnode.state.fields = {}
+    vnode.state.schema = null
     m.request({
       method: 'GET',
       url: '/grid/agent'
@@ -46,69 +52,100 @@ const AddAssetForm = {
             vnode.state.agents = result.filter(agent => agent.public_key !== user.publicKey)
           })
       })
+
+    m.request({
+      method: 'GET',
+      url: `/grid/schema/${vnode.attrs.schemaName}`
+    })
+      .then(result => {
+        vnode.state.schema = result
+      })
+
+    m.request({
+      method: 'GET',
+      url: '/grid/record'
+    })
+      .then(result => {
+        vnode.state.records = result.filter(record => record)
+      })
   },
 
   view (vnode) {
-    const setter = forms.stateSetter(vnode.state)
+    const setter = forms.stateSetter(vnode.state.fields)
+    let legendTitle = 'Asset'
+    if (vnode.state.schema) {
+      vnode.state.textFields = vnode.state.schema.properties.map((property) => {
+        let field = forms.group(_.startCase(property.name), forms.field(setter(property.name), {
+          type: property.data_type.toLowerCase(),
+          required: property.required,
+        }))
+        if (property.name == "components") {
+          field = forms.group(_.startCase(property.name), m(forms.MultiSelect, {
+            label: "Components",
+            color: 'light',
+            options: vnode.state.records.map(record => [record.record_id, record.record_id]),
+            selected: vnode.state.selected,
+            onchange: (selection) => {
+              vnode.state.selected = selection
+            }
+          }))
+        }
+        return field
+      })
+      legendTitle = vnode.state.schema.name
+    }
     return [
       m('.add_asset_form',
         m('form', {
           onsubmit: (e) => {
             e.preventDefault()
             _handleSubmit(vnode.state)
-            _clearForm(vnode.state)
+            _clearForm()
           }
         },
-        m('legend', 'Track New Asset'),
-        forms.textInput(setter('serialNumber'), 'Serial Number'),
-
-        layout.row([
-          forms.textInput(setter('type'), 'Type')
-        ]),
-
-        forms.group('Weight (kg)', forms.field(setter('weight'), {
-          type: 'number',
-          step: 'any',
-          min: 0,
-          required: false
-        })),
-
-        layout.row([
-          forms.group('Latitude', forms.field(setter('latitude'), {
-            type: 'number',
-            step: 'any',
-            min: -90,
-            max: 90,
-            required: false
-          })),
-          forms.group('Longitude', forms.field(setter('longitude'), {
-            type: 'number',
-            step: 'any',
-            min: -180,
-            max: 180,
-            required: false
-          }))
-        ]),
-
+        m('legend', `Track New ${legendTitle}`),
+        ...vnode.state.textFields
+        ,
         m('.row.justify-content-end.align-items-end',
           m('col-2',
             m('button.btn.btn-primary',
               {
-                disabled: (
-                  !vnode.state.serialNumber ||
-                            vnode.state.serialNumber === '' ||
-                            !vnode.state.type || vnode.state.type === '' ||
-                            !vnode.state.latitude || vnode.state.latitude === '' ||
-                            !vnode.state.longitude || vnode.state.longitude === '' ||
-                            !vnode.state.weight || vnode.state.weight === ''
-                )
+                disabled: _checkDisabled(vnode.state)
               },
               'Create Record')))))
     ]
   }
 }
 
-const _clearForm = (state) => {
+const _checkDisabled = (state) => {
+  if (state.schema && state.fields) {
+    let { fields, schema } = state;
+    let numberFields = schema.properties.length
+    let isSelectedCorrectComponents = true;
+
+    schema.properties.map((property) => {
+      if (property.name == "components") {
+        numberFields--;
+        isSelectedCorrectComponents = false
+      }
+    })
+    if (fields.componentsNumber) {
+      isSelectedCorrectComponents = state.selected.length == parseInt(fields.componentsNumber)
+    }
+
+    let isFieldsEmpty = false
+    Object.keys(fields).map((field) => {
+      if (fields[field] == "") {
+        isFieldsEmpty = true
+      }
+    })
+    return Object.keys(fields).length != numberFields || !isSelectedCorrectComponents || isFieldsEmpty
+  }
+
+  return true
+}
+
+const _clearForm = () => {
   location.reload()
 }
 
@@ -118,32 +155,40 @@ const _clearForm = (state) => {
  * Extract the appropriate values to pass to the create record transaction.
  */
 const _handleSubmit = (state) => {
-  const properties = [{
-    name: 'serialNumber',
-    dataType: PropertyDefinition.DataType.STRING,
-    stringValue: state.serialNumber
-  },
-  {
-    name: 'type',
-    stringValue: state.type,
-    dataType: PropertyDefinition.DataType.STRING
-  },
-  {
-    name: 'weight',
-    numberValue: parsing.toInt(state.weight),
-    dataType: PropertyDefinition.DataType.NUMBER
-  },
-  {
-    name: 'location',
-    latLongValue: {
-      latitude: parsing.toInt(state.latitude),
-      longitude: parsing.toInt(state.longitude)
-    },
-    dataType: PropertyDefinition.DataType.LAT_LONG
-  }]
+  // const properties = [{
+  //   name: 'serialNumber',
+  //   dataType: PropertyDefinition.DataType.STRING,
+  //   stringValue: state.fields.serialNumber
+  // },
+  // {
+  //   name: 'type',
+  //   stringValue: state.fields.type,
+  //   dataType: PropertyDefinition.DataType.STRING
+  // },
+  // {
+  //   name: 'weight',
+  //   numberValue: parsing.toInt(state.fields.weight),
+  //   dataType: PropertyDefinition.DataType.NUMBER
+  // }]
+
+  const properties = state.schema.properties.map((property) => {
+    let propertyVal = {
+      name: property.name,
+      dataType: PropertyDefinition.DataType[property.data_type.toUpperCase()],
+    }
+    if (property.name == "components") {
+      propertyVal.stringValue = state.selected.join(";")
+    } else if (propertyVal.dataType == PropertyDefinition.DataType.STRING) {
+      propertyVal.stringValue = state.fields[property.name]
+    } else if (propertyVal.dataType == PropertyDefinition.DataType.NUMBER) {
+      propertyVal.numberValue = parsing.toInt(state.fields[property.name])
+    }
+
+    return propertyVal
+  })
 
   auth.getSigner()
-    .then((signer) => records.createRecord(properties, signer))
+    .then((signer) => records.createRecord(properties, signer, state.schema.name))
 }
 
 module.exports = AddAssetForm

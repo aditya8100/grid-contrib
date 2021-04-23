@@ -38,7 +38,7 @@ const AssetList = {
         url: '/grid/record'
       })
         .then((result) => {
-          vnode.state.records = result.filter((record) => record.schema === 'asset')
+          vnode.state.records = result.filter((record) => record)
           vnode.state.records.sort((a, b) => {
             return getLatestUpdateTime(b) - getLatestUpdateTime(a)
           })

@@ -54,7 +54,6 @@ services:
           cd -
         fi;
         cd asset_client/ && npm run seed-schema && cd - &&
-        cd fish_client/ && npm run seed-schema && cd - &&
         tail -f /dev/null
       "
 

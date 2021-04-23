@@ -27,6 +27,7 @@ const parsing = require('../services/parsing')
 const api = require('../services/api')
 const auth = require('../services/auth')
 const records = require('../services/records')
+const forms = require('../components/forms')
 const agents = require('../services/agents')
 const {
   getPropertyValue,
@@ -42,12 +43,13 @@ const PAGE_SIZE = 50
  */
 const authorizableProperties = [
   'weight',
-  'location'
+  'components',
+  'componentsNumber'
 ]
 
-const propertyNames = () => {
+const propertyNames = (schemaName) => {
   return m.request({
-    url: '/grid/schema/asset',
+    url: `/grid/schema/${schemaName}`,
     method: 'GET'
   })
     .then(result => {
@@ -61,6 +63,15 @@ const _labelProperty = (label, value) => [
     m('dd', value))
 ]
 
+const _labelMultiProperty = (label, values) => {
+  let valuesComponents = values ? values.map((value) => m('dd', value)) : []
+  return [
+    m('dl',
+      m('dt', label),
+      ...valuesComponents)
+  ]
+}
+
 const _row = (...cols) =>
   m('.row',
     cols
@@ -68,7 +79,7 @@ const _row = (...cols) =>
       .map((col) => m('.col', col)))
 
 const TransferDropdown = {
-  view (vnode) {
+  view(vnode) {
     // Default to no-op
     let onsuccess = vnode.attrs.onsuccess || (() => null)
     let record = vnode.attrs.record
@@ -91,7 +102,7 @@ const TransferDropdown = {
                     e.preventDefault()
                     if (proposal && proposal.issuingAgent === publicKey) {
                       _answerProposal(record, agent.public_key, ROLE_TO_ENUM[role],
-                        Proposal.Role.CANCEL, 'asset', properties, signer)
+                        Proposal.Role.CANCEL, vnode.state.record.schema, properties, signer)
                         .then(onsuccess)
                     } else {
                       _submitProposal(record, ROLE_TO_ENUM[role], agent.public_key, signer, properties)
@@ -116,7 +127,7 @@ const ROLE_TO_ENUM = {
 }
 
 const TransferControl = {
-  view (vnode) {
+  view(vnode) {
     let { record, agents, publicKey, role, label, signer, properties } = vnode.attrs
     if (record.final) {
       return null
@@ -142,21 +153,21 @@ const TransferControl = {
             onclick: (e) => {
               e.preventDefault()
               _answerProposal(record, publicKey, ROLE_TO_ENUM[role],
-                AnswerProposalAction.Response.ACCEPT, 'asset', properties, signer)
+                AnswerProposalAction.Response.ACCEPT, record.schema, properties, signer)
 
                 .then(onsuccess)
             }
           },
-          `Accept ${label}`),
+            `Accept ${label}`),
           m('button.btn.btn-danger.ml-auto', {
             onclick: (e) => {
               e.preventDefault()
               _answerProposal(record, publicKey, ROLE_TO_ENUM[role],
-                AnswerProposalAction.Response.REJECT, 'asset', properties, signer)
+                AnswerProposalAction.Response.REJECT, record.schema, properties, signer)
                 .then(onsuccess)
             }
           },
-          `Reject`))
+            `Reject`))
       ]
     } else {
       return null
@@ -172,7 +183,7 @@ const _hasProposal = (record, receivingAgent, role) =>
   !!_getProposal(record, receivingAgent, role)
 
 const ReporterControl = {
-  view (vnode) {
+  view(vnode) {
     let { record, agents, publicKey, signer } = vnode.attrs
     if (record.final) {
       return null
@@ -205,7 +216,7 @@ const ReporterControl = {
                     onsuccess()
                   }
                 },
-                'Revoke Authorization'))
+                  'Revoke Authorization'))
             ]
           }),
 
@@ -220,7 +231,7 @@ const ReporterControl = {
                   onclick: (e) => {
                     e.preventDefault()
                     _answerProposal(record, p.receivingAgent, ROLE_TO_ENUM['reporter'],
-                      AnswerProposalAction.Response.CANCEL, 'asset', signer)
+                      AnswerProposalAction.Response.CANCEL, record.schema, signer)
                     onsuccess()
                   }
                 },
@@ -235,20 +246,20 @@ const ReporterControl = {
             onclick: (e) => {
               e.preventDefault()
               _answerProposal(record, publicKey, ROLE_TO_ENUM['reporter'],
-                AnswerProposalAction.Response.ACCEPT, 'asset', proposal.properties, signer)
+                AnswerProposalAction.Response.ACCEPT, record.schema, proposal.properties, signer)
               onsuccess()
             }
           },
-          `Accept Reporting Authorization for ${proposal.properties}`),
+            `Accept Reporting Authorization for ${proposal.properties}`),
           m('button.btn.btn-danger.ml-auto', {
             onclick: (e) => {
               e.preventDefault()
               _answerProposal(record, publicKey, ROLE_TO_ENUM['reporter'],
-                AnswerProposalAction.Response.REJECT, 'asset', proposal.properties, signer)
+                AnswerProposalAction.Response.REJECT, record.schema, proposal.properties, signer)
               onsuccess()
             }
           },
-          `Reject`))
+            `Reject`))
       ]
     } else {
       return null
@@ -291,7 +302,7 @@ const ReportWeight = {
             dataType: PropertyDefinition.DataType.NUMBER,
             numberValue: parseFloat(vnode.state.weight) * 1000000
           },
-          vnode.attrs.signer
+            vnode.attrs.signer
           )
             .then(() => {
               vnode.state.weight = ''
@@ -299,92 +310,90 @@ const ReportWeight = {
             .then(onsuccess)
         }
       },
-      m('.form-row',
-        m('.form-group.col-5',
-          m('label.sr-only', { 'for': 'weight' }, 'Weight'),
-          m('input.form-control[type="text"]', {
-            name: 'weight',
-            type: 'number',
-            step: 'any',
-            min: 0,
-            onchange: m.withAttr('value', (value) => {
-              vnode.state.weight = value
-            }),
-            value: vnode.state.weight,
-            placeholder: 'Weight'
-          })),
-        m('.col-2',
-          m('button.btn.btn-primary', 'Update'))))
+        m('.form-row',
+          m('.form-group.col-5',
+            m('label.sr-only', { 'for': 'weight' }, 'Weight'),
+            m('input.form-control[type="text"]', {
+              name: 'weight',
+              type: 'number',
+              step: 'any',
+              min: 0,
+              onchange: m.withAttr('value', (value) => {
+                vnode.state.weight = value
+              }),
+              value: vnode.state.weight,
+              placeholder: 'Weight'
+            })),
+          m('.col-2',
+            m('button.btn.btn-primary', 'Update'))))
     ]
   }
 }
 
-const ReportLocation = {
+const ReportComponents = {
+  oninit(vnode) {
+    vnode.state.selectedComponents = []
+  },
   view: (vnode) => {
+    const setter = forms.stateSetter(vnode.state)
     let onsuccess = vnode.attrs.onsuccess || (() => null)
     return [
-      m('form', {
-        onsubmit: (e) => {
-          e.preventDefault()
-          _updateProperty(vnode.attrs.record, {
-            name: 'location',
-            latLongValue: {
-              latitude: parseFloat(vnode.state.latitude) * 1000000,
-              longitude: parseFloat(vnode.state.longitude) * 1000000
+      m('.report-components',
+        m('form', {
+          onsubmit: (e) => {
+            e.preventDefault()
+            _updateProperty(vnode.attrs.record, {
+              name: 'componentsNumber',
+              dataType: PropertyDefinition.DataType.NUMBER,
+              numberValue: parseFloat(vnode.state.componentsNumber) * 1000000
             },
-            dataType: PropertyDefinition.DataType.LAT_LONG
-          },
-          vnode.attrs.signer
-          )
-            .then(() => {
-              vnode.state.latitude = ''
-              vnode.state.longitude = ''
-            })
-            .then(onsuccess)
-        }
-      },
-      m('.form-row',
-        m('.form-group.col-5',
-          m('label.sr-only', { 'for': 'latitude' }, 'Latitude'),
-          m("input.form-control[type='text']", {
-            name: 'latitude',
-            type: 'number',
-            step: 'any',
-            min: -90,
-            max: 90,
-            onchange: m.withAttr('value', (value) => {
-              vnode.state.latitude = value
-            }),
-            value: vnode.state.latitude,
-            placeholder: 'Latitude'
-          })),
-        m('.form-group.col-5',
-          m('label.sr-only', { 'for': 'longitude' }, 'Longitude'),
-          m("input.form-control[type='text']", {
-            name: 'longitude',
-            type: 'number',
-            step: 'any',
-            min: -180,
-            max: 180,
-            onchange: m.withAttr('value', (value) => {
-              vnode.state.longitude = value
-            }),
-            value: vnode.state.longitude,
-            placeholder: 'Longitude'
-          })),
+              vnode.attrs.signer
+            )
+              .then(() => {
+                vnode.state.componentsNumber = ''
+              })
+              .then(onsuccess)
 
-        m('.col-2',
-          m('button.btn.btn-primary', 'Update'))))
+            _updateProperty(vnode.attrs.record, {
+              name: 'components',
+              dataType: PropertyDefinition.DataType.STRING,
+              stringValue: vnode.state.selectedComponents.join(";")
+            },
+              vnode.attrs.signer
+            )
+              .then(() => {
+                vnode.state.selectedComponents = ''
+              })
+              .then(onsuccess)
+          }
+        },
+        forms.group("Components Number", forms.field(setter("componentsNumber"), {
+          type: "number",
+        })),
+        forms.group("Components", m(forms.MultiSelect, {
+          label: "Select Components",
+          color: 'primary',
+          options: vnode.attrs.records.filter((record) => record.record_id != vnode.attrs.record.record_id && record.owner == api.getPublicKey()).map(record => [record.record_id, record.record_id]),
+          selected: vnode.state.selectedComponents,
+          onchange: (selection) => {
+            vnode.state.selectedComponents = selection
+          }
+        }), m('col-2',
+        m('button.btn.btn-primary',
+          {
+            disabled: !vnode.state.componentsNumber || !vnode.state.selectedComponents || parseInt(vnode.state.componentsNumber) != vnode.state.selectedComponents.length
+          },
+          'Update')))))
     ]
   }
 }
 
 const AuthorizeReporter = {
-  oninit (vnode) {
+  oninit(vnode) {
     vnode.state.authorizedProperties = []
   },
 
-  view (vnode) {
+  view(vnode) {
     return [
       _row(m('strong', 'Authorize Reporter')),
       m('.row',
@@ -435,18 +444,19 @@ const AuthorizeReporter = {
 }
 
 const AssetDetail = {
-  oninit (vnode) {
+  oninit(vnode) {
     _loadData(vnode.attrs.recordId, vnode.state)
     vnode.state.refreshId = setInterval(() => {
       _loadData(vnode.attrs.recordId, vnode.state)
     }, 5000)
+    vnode.state.doesHaveComponents = false;
   },
 
-  onbeforeremove (vnode) {
+  onbeforeremove(vnode) {
     clearInterval(vnode.state.refreshId)
   },
 
-  view (vnode) {
+  view(vnode) {
     if (!vnode.state.record) {
       return m('.alert-warning', `Loading ${vnode.attrs.recordId}`)
     }
@@ -455,129 +465,135 @@ const AssetDetail = {
     let owner = vnode.state.owner
     let custodian = vnode.state.custodian
     let record = vnode.state.record
+    let records = vnode.state.records
     let signer = vnode.state.signer
     let properties = vnode.state.properties
+
+    vnode.state.doesHaveComponents = properties && properties.includes("components")
+
+    let componentsRows = [
+      _row(
+        _labelProperty('Components Number', _formatComponentsNumber(getPropertyValue(record, 'componentsNumber'))),
+      ),
+
+      _row(
+        _labelMultiProperty('Components', _formatComponents(getPropertyValue(record, 'components')))),
+
+      _row(
+        (isReporter(record, 'componentsNumber', publicKey) && isReporter(record, 'components', publicKey) && !record.final
+          ? m(ReportComponents, { record, records, onsuccess: () => _loadData(record. record_id, vnode.state), signer })
+          : null))
+    ]
 
     return [
       m('.asset-detail',
         m('h1.text-center', record.recordId),
         _row(
           _labelProperty('Serial Number', getPropertyValue(record, 'serialNumber'))),
-        _row(
-          _labelProperty('Created',
-            _formatTimestamp(getOldestPropertyUpdateTime(record))),
-          _labelProperty('Updated',
-            _formatTimestamp(getLatestUpdateTime(record)))),
+        _labelProperty('Record ID', record.record_id)),
+      _row(
+        _labelProperty('Created',
+          _formatTimestamp(getOldestPropertyUpdateTime(record))),
+        _labelProperty('Updated',
+          _formatTimestamp(getLatestUpdateTime(record)))),
 
-        _row(
-          _labelProperty('Owner', (owner && owner.public_key ? _agentLink(owner.public_key) : '')),
-          m(TransferControl, {
-            publicKey,
-            record,
-            agents: vnode.state.agents,
-            role: 'owner',
-            label: 'Ownership',
-            signer,
-            properties,
-            onsuccess: () => _loadData(vnode.attrs.recordId, vnode.state)
-          })),
-
-        _row(
-          _labelProperty('Custodian', (custodian && custodian.public_key ? _agentLink(custodian.public_key) : '')),
-          m(TransferControl, {
-            publicKey,
-            record,
-            agents: vnode.state.agents,
-            role: 'custodian',
-            label: 'Custodianship',
-            signer,
-            properties,
-            onsuccess: () => _loadData(vnode.attrs.recordId, vnode.state)
-          })),
-
-        _row(
-          _labelProperty('Type', getPropertyValue(record, 'type'))),
-        _row(
-          _labelProperty('Weight', _formatWeight(getPropertyValue(record, 'weight'))),
-          (isReporter(record, 'weight', publicKey) && !record.final
-            ? m(ReportWeight, { record, onsuccess: () => _loadData(record.record_id, vnode.state), signer })
-            : null)),
-
-        _row(
-          _labelProperty(
-            'Location',
-            _propLink(record, 'location', _formatLocation(getPropertyValue(record, 'location')))
-          ),
-          (isReporter(record, 'location', publicKey) && !record.final
-            ? m(ReportLocation, { record, onsuccess: () => _loadData(record.record_id, vnode.state), signer })
-            : null)),
-
-          _row(
-            m(Table, {
-              headers: [
-                'Owner',
-                'Timestamp',
-              ],
-              rows: record.owner_updates
-                .map((rec) => [
-                  rec.agent_id,
-                  // This is the "created" time, synthesized from properties
-                  // added on the initial create
-                  _formatTimestamp(rec.timestamp),
-                ]),
-              noRowsText: 'No owners found'
-            })
-          ),
-
-        _row(m(ReporterControl, {
-          record,
+      _row(
+        _labelProperty('Owner', (owner && owner.public_key ? _agentLink(owner.public_key) : '')),
+        m(TransferControl, {
           publicKey,
-          agents: vnode.state.allAgents,
+          record,
+          agents: vnode.state.agents,
+          role: 'owner',
+          label: 'Ownership',
           signer,
+          properties,
           onsuccess: () => _loadData(vnode.attrs.recordId, vnode.state)
         })),
 
-        ((record.owner === publicKey && !record.final)
-          ? m('.row.m-2',
-            m('.col.text-center',
-              m('button.btn.btn-danger', {
-                onclick: (e) => {
-                  e.preventDefault()
-                  _finalizeRecord(record, signer).then(() =>
-                    _loadData(vnode.attrs.recordId, vnode.state))
-                }
-              },
-              'Finalize')))
-          : '')
-      )
-    ]
-  }
-}
+      _row(
+        _labelProperty('Custodian', (custodian && custodian.public_key ? _agentLink(custodian.public_key) : '')),
+        m(TransferControl, {
+          publicKey,
+          record,
+          agents: vnode.state.agents,
+          role: 'custodian',
+          label: 'Custodianship',
+          signer,
+          properties,
+          onsuccess: () => _loadData(vnode.attrs.recordId, vnode.state)
+        })),
 
-const _formatLocation = (location) => {
-  if (location && location.latitude !== undefined && location.longitude !== undefined) {
-    let latitude = parsing.toFloat(location.latitude)
-    let longitude = parsing.toFloat(location.longitude)
-    return `${latitude}, ${longitude}`
-  } else {
-    return 'Unknown'
+      _row(
+        _labelProperty('Type', getPropertyValue(record, 'type'))),
+      _row(
+        _labelProperty('Weight', _formatWeight(getPropertyValue(record, 'weight'))),
+        (isReporter(record, 'weight', publicKey) && !record.final
+          ? m(ReportWeight, { record, onsuccess: () => _loadData(record.record_id, vnode.state), signer })
+          : null)),
+
+      ...(vnode.state.doesHaveComponents ? componentsRows : []),
+
+      _row(
+        m(Table, {
+          headers: [
+            'Owner',
+            'Timestamp',
+          ],
+          rows: record.owner_updates
+            .map((rec) => [
+              rec.agent_id,
+              // This is the "created" time, synthesized from properties
+              // added on the initial create
+              _formatTimestamp(rec.timestamp),
+            ]),
+          noRowsText: 'No owners found'
+        })
+      ),
+
+      _row(m(ReporterControl, {
+        record,
+        publicKey,
+        agents: vnode.state.allAgents,
+        signer,
+        onsuccess: () => _loadData(vnode.attrs.recordId, vnode.state)
+      })),
+
+      ((record.owner === publicKey && !record.final)
+        ? m('.row.m-2',
+          m('.col.text-center',
+            m('button.btn.btn-danger', {
+              onclick: (e) => {
+                e.preventDefault()
+                _finalizeRecord(record, signer).then(() =>
+                  _loadData(vnode.attrs.recordId, vnode.state))
+              }
+            },
+              'Finalize')))
+        : '')
+
+    ]
   }
 }
 
 const _formatWeight = (weight) => `${weight / 1000000} kg`
 
-const _formatTimestamp = (sec) => {
+const _formatComponentsNumber = (componentsNumber) => `${componentsNumber / 1000000}`
+
+const _formatComponents = (componentsString) => componentsString ? componentsString.split(";") : ""
+
+const _formatTimestamp = sec => {
   if (!sec) {
     sec = Date.now() / 1000
   }
-  return moment.unix(sec).format('YYYY-MM-DD')
+  return moment.unix(sec).format('MM/DD/YYYY, h:mm:ss a')
 }
 
 const _loadData = (recordId, state) => {
   let publicKey = api.getPublicKey()
-  return records.fetchRecord(recordId)
-    .then(record => {
-      state.record = record
+  return records.getRecords()
+    .then((records) => {
+      state.record = records.filter(record => record.record_id == recordId)[0]
+      state.records = records
     })
     .then(() => {
       agents.getAgents()
@@ -595,7 +611,7 @@ const _loadData = (recordId, state) => {
         })
     })
     .then(() => {
-      propertyNames()
+      propertyNames(state.record.schema)
         .then((res) => {
           state.properties = res
         })

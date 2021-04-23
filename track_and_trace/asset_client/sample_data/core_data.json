@@ -7,8 +7,29 @@
     "password": "abc123",
     "schemas": [
       {
-        "name": "asset",
-        "description": "A sample asset schema",
+        "name": "Asset Pure",
+        "description": "A sample asset schema for a pure component",
+        "properties": [
+            {
+              "name": "serialNumber",
+              "dataType": 4,
+              "required": true
+            },
+            {
+              "name": "type",
+              "dataType": 4,
+              "required": true
+            },
+            {
+              "name": "weight",
+              "dataType": 3,
+              "numberExponent": -6
+            }
+        ]
+      },
+      {
+        "name": "Asset Intermediate",
+        "description": "A sample asset schema for an intermediate component",
         "properties": [
             {
               "name": "serialNumber",
@@ -26,8 +47,45 @@
               "numberExponent": -6
             },
             {
-              "name": "location",
-              "dataType": 7
+              "name": "componentsNumber",
+              "dataType": 3,
+              "required": true
+            },
+            {
+              "name": "components",
+              "dataType": 4,
+              "required": true
+            }
+        ]
+      },
+      {
+        "name": "Asset Final",
+        "description": "A sample asset schema for a final component",
+        "properties": [
+            {
+              "name": "serialNumber",
+              "dataType": 4,
+              "required": true
+            },
+            {
+              "name": "type",
+              "dataType": 4,
+              "required": true
+            },
+            {
+              "name": "weight",
+              "dataType": 3,
+              "numberExponent": -6
+            },
+            {
+              "name": "componentsNumber",
+              "dataType": 3,
+              "required": true
+            },
+            {
+              "name": "components",
+              "dataType": 4,
+              "required": true
             }
         ]
       }

@@ -47,8 +47,6 @@ services:
           npm run init &&
           npm run make-asset &&
           npm run make-fish &&
-          npm run seed-sample-assets &&
-          npm run seed-sample-fish &&
           cd -
         fi;
         tail -f /dev/null

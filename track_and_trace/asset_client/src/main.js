@@ -38,6 +38,7 @@ const PropertyDetailPage = require('./views/property_detail')
 const GetStartedForm = require('./views/get_started_form')
 const OrganizationList = require('./views/list_organizations')
 const OrganizationDetailPage = require('./views/organization_detail')
+const SchemaList = require('./views/list_asset_types')
 
 /**
  * A basic layout component that adds the navbar to the view.
@@ -135,7 +136,8 @@ document.addEventListener('DOMContentLoaded', () => {
     '/agents': resolve(AgentList),
     '/organizations': resolve(OrganizationList),
     '/organizations/:orgId': resolve(OrganizationDetailPage),
-    '/create': resolve(AddAssetForm, true),
+    '/create/:schemaName': resolve(AddAssetForm, true),
+    '/create': resolve(SchemaList, true),
     '/assets/:recordId': resolve(AssetDetail),
     '/assets': resolve(AssetList),
     '/login': resolve(LoginForm),
