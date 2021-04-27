@@ -62,6 +62,7 @@ const _labelProperty = (label, value) => [
     m('dd', value))
 ]
 
+// Component for a label with mulitple values.
 const _labelMultiProperty = (label, values) => {
   let valuesComponents = values ? values.map((value) => m('dd', value)) : []
   return [
@@ -195,12 +196,11 @@ const ReporterControl = {
         m(AuthorizeReporter, {
           record,
           agents,
-          onsubmit: ([publicKey, properties]) =>
-            {
-              let propertiesUnfolded = []
-              properties.map(property => propertiesUnfolded = propertiesUnfolded.concat(property.split(", ")))
-              _submitProposal(record, ROLE_TO_ENUM['reporter'], publicKey, signer, propertiesUnfolded)
-            },
+          onsubmit: ([publicKey, properties]) => {
+            let propertiesUnfolded = []
+            properties.map(property => propertiesUnfolded = propertiesUnfolded.concat(property.split(", ")))
+            _submitProposal(record, ROLE_TO_ENUM['reporter'], publicKey, signer, propertiesUnfolded)
+          },
           onsuccess
         }),
 
@@ -333,12 +333,13 @@ const ReportWeight = {
   }
 }
 
+// Component that takes care of editing the components.
 const ReportComponents = {
   oninit(vnode) {
     vnode.state.selectedComponents = []
   },
   view: (vnode) => {
-    const setter = forms.stateSetter(vnode.state)
+    const setter = forms.stateSetter(vnode.state) // Data from form fields will be saved in vnode.state.{fieldName}.
     let onsuccess = vnode.attrs.onsuccess || (() => null)
     return [
       m('.report-components',
@@ -370,23 +371,24 @@ const ReportComponents = {
               .then(onsuccess)
           }
         },
-        forms.group("Components Number", forms.field(setter("componentsNumber"), {
-          type: "number",
-        })),
-        forms.group("Components", m(forms.MultiSelect, {
-          label: "Select Components",
-          color: 'primary',
-          options: vnode.attrs.records.filter((record) => record.record_id != vnode.attrs.record.record_id && record.owner == api.getPublicKey()).map(record => [record.record_id, record.record_id]),
-          selected: vnode.state.selectedComponents,
-          onchange: (selection) => {
-            vnode.state.selectedComponents = selection
-          }
-        }), m('col-2',
-        m('button.btn.btn-primary',
-          {
-            disabled: !vnode.state.componentsNumber || !vnode.state.selectedComponents || parseInt(vnode.state.componentsNumber) != vnode.state.selectedComponents.length
-          },
-          'Update')))))
+          forms.group("Components Number", forms.field(setter("componentsNumber"), {
+            type: "number",
+          })),
+          forms.group("Components", m(forms.MultiSelect, {
+            label: "Select Components",
+            color: 'primary',
+            // Only show the components that are owned by this agent.
+            options: vnode.attrs.records.filter((record) => record.record_id != vnode.attrs.record.record_id && record.owner == api.getPublicKey()).map(record => [record.record_id, record.record_id]),
+            selected: vnode.state.selectedComponents,
+            onchange: (selection) => {
+              vnode.state.selectedComponents = selection
+            }
+          }), m('col-2',
+            m('button.btn.btn-primary',
+              {
+                disabled: !vnode.state.componentsNumber || !vnode.state.selectedComponents || parseInt(vnode.state.componentsNumber) != vnode.state.selectedComponents.length // Don't allow to submit unless the `componentsNumber` = `|components|`.
+              },
+              'Update')))))
     ]
   }
 }
@@ -474,6 +476,7 @@ const AssetDetail = {
 
     vnode.state.doesHaveComponents = properties && properties.includes("components")
 
+    // Fields to edit the components.
     let componentsRows = [
       _row(
         _labelProperty('Components Number', _formatComponentsNumber(getPropertyValue(record, 'componentsNumber'))),
@@ -484,7 +487,7 @@ const AssetDetail = {
 
       _row(
         (isReporter(record, 'componentsNumber', publicKey) && isReporter(record, 'components', publicKey) && !record.final
-          ? m(ReportComponents, { record, records, onsuccess: () => _loadData(record. record_id, vnode.state), signer })
+          ? m(ReportComponents, { record, records, onsuccess: () => _loadData(record.record_id, vnode.state), signer })
           : null))
     ]
 
@@ -582,7 +585,8 @@ const _formatWeight = (weight) => `${weight / 1000000} kg`
 
 const _formatComponentsNumber = (componentsNumber) => `${componentsNumber / 1000000}`
 
-const _formatComponents = (componentsString) => componentsString ? componentsString.split(";") : ""
+// Components are stored as a string of record_ids using ';' as delimiter.
+const _formatComponents = (componentsString) => componentsString ? componentsString.split(";") : "" 
 
 const _formatTimestamp = sec => {
   if (!sec) {

@@ -1,17 +1,3 @@
-// Copyright 2019 Cargill Incorporated
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 'use strict'
 
 const m = require('mithril')
@@ -20,6 +6,7 @@ const authService = require('../services/auth')
 const organizationService = require('../services/organizations')
 const agentService = require('../services/agents')
 
+// Form to add an agent to the organization.
 const AddAgent = {
   submitting: false,
   error: null,
@@ -41,29 +28,30 @@ const AddAgent = {
   },
 
   submit: (e) => {
+    // Currently logged in agent must be an admin to add another agent.
     e.preventDefault()
     AddAgent.submitting = true
     authService.getSigner()
-    .then((signer) => {
+      .then((signer) => {
         agentService.fetchAgent(signer.getPublicKey().asHex())
-        .then((agent) => {
+          .then((agent) => {
             authService.createUser(AddAgent, (inner_signer) => agentService.createAgent(AddAgent.email, agent.org_id, signer, inner_signer), false)
-            .then(() => {
+              .then(() => {
                 AddAgent.clear()
                 m.route.set('/agents')
-            })
-            .catch((err) => {
+              })
+              .catch((err) => {
                 AddAgent.error = err
                 AddAgent.submitting = false
                 m.redraw()
-            })
-        })
-        .catch((err) => {
+              })
+          })
+          .catch((err) => {
             AddAgent.error = err
             AddAgent.submitting = false
             m.redraw()
-        })
-    })
+          })
+      })
   },
 
   clear: () => {
@@ -77,9 +65,9 @@ const AddAgent = {
 
   invalid: () => {
     if (!AddAgent.email ||
-            !AddAgent.password ||
-            !AddAgent.passwordConfirm ||
-            AddAgent.password !== AddAgent.passwordConfirm) {
+      !AddAgent.password ||
+      !AddAgent.passwordConfirm ||
+      AddAgent.password !== AddAgent.passwordConfirm) {
       return true
     }
 
@@ -91,10 +79,10 @@ const AddAgent = {
  * Add Agent Form
  */
 const AddAgentForm = {
-  oninit () {
+  oninit() {
     AddAgent.clear()
   },
-  view () {
+  view() {
     return [
       m('.get-started-form'),
       m('form', [

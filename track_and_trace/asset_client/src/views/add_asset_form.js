@@ -73,12 +73,16 @@ const AddAssetForm = {
   view (vnode) {
     const setter = forms.stateSetter(vnode.state.fields)
     let legendTitle = 'Asset'
+
+    // Dynamically add input fields based on schema data type.
     if (vnode.state.schema) {
+      // Add a normal text field and save the inputs into `vnode.state`.
       vnode.state.textFields = vnode.state.schema.properties.map((property) => {
         let field = forms.group(_.startCase(property.name), forms.field(setter(property.name), {
           type: property.data_type.toLowerCase(),
           required: property.required,
         }))
+        // Create multi-select to select components. Saved into `vnode.state.selected`.
         if (property.name == "components") {
           field = forms.group(_.startCase(property.name), m(forms.MultiSelect, {
             label: "Components",
@@ -123,16 +127,21 @@ const _checkDisabled = (state) => {
     let numberFields = schema.properties.length
     let isSelectedCorrectComponents = true;
 
+    // Check the number of text fields that are present.
     schema.properties.map((property) => {
       if (property.name == "components") {
         numberFields--;
         isSelectedCorrectComponents = false
       }
     })
+
+    // Check if the schema can have components as part of it. If yes, make sure number of components
+    // matches the number of selected componentes.
     if (fields.componentsNumber) {
       isSelectedCorrectComponents = state.selected.length == parseInt(fields.componentsNumber)
     }
 
+    // Make sure text fields are not empty.
     let isFieldsEmpty = false
     Object.keys(fields).map((field) => {
       if (fields[field] == "") {
@@ -155,22 +164,7 @@ const _clearForm = () => {
  * Extract the appropriate values to pass to the create record transaction.
  */
 const _handleSubmit = (state) => {
-  // const properties = [{
-  //   name: 'serialNumber',
-  //   dataType: PropertyDefinition.DataType.STRING,
-  //   stringValue: state.fields.serialNumber
-  // },
-  // {
-  //   name: 'type',
-  //   stringValue: state.fields.type,
-  //   dataType: PropertyDefinition.DataType.STRING
-  // },
-  // {
-  //   name: 'weight',
-  //   numberValue: parsing.toInt(state.fields.weight),
-  //   dataType: PropertyDefinition.DataType.NUMBER
-  // }]
-
+  // Create `properties` from the values of the text fields.
   const properties = state.schema.properties.map((property) => {
     let propertyVal = {
       name: property.name,
@@ -187,6 +181,7 @@ const _handleSubmit = (state) => {
     return propertyVal
   })
 
+  // Create record following the given schema
   auth.getSigner()
     .then((signer) => records.createRecord(properties, signer, state.schema.name))
 }
